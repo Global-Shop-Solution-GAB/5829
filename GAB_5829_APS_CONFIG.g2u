@@ -1,0 +1,102 @@
+Program.Sub.ScreenSU.Start
+Gui.frmConfig..Create
+Gui.frmConfig..Size(5430,9735)
+Gui.frmConfig..MinX(0)
+Gui.frmConfig..MinY(0)
+Gui.frmConfig..Position(0,0)
+Gui.frmConfig..BackColor(-2147483633)
+Gui.frmConfig..MousePointer(0)
+Gui.frmConfig..Caption("APS Graph Configuration")
+Gui.frmConfig..Event(UnLoad,frmConfig_UnLoad)
+Gui.frmConfig.gsGCWorkCent.Create(GsGridControl)
+Gui.frmConfig.gsGCWorkCent.Size(4905,8400)
+Gui.frmConfig.gsGCWorkCent.Position(135,315)
+Gui.frmConfig.cmdSave.Create(Button)
+Gui.frmConfig.cmdSave.Size(1305,375)
+Gui.frmConfig.cmdSave.Position(195,8760)
+Gui.frmConfig.cmdSave.Caption("Save")
+Gui.frmConfig.cmdSave.Event(Click,cmdSave_Click)
+Gui.frmConfig.lbl10.Create(Label,"Workcentre List",True,1980,255,0,120,105,True,0,"Arial",8,-2147483633,0)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+f.Intrinsic.Control.Try
+	f.ODBC.Connection!con.opencompanyconnection
+	v.Local.ssql.Declare
+	v.Local.sWC.Declare
+	v.Local.sVal.Declare
+	v.Local.i.Declare(long)
+	v.Local.ssql.Set("SELECT CONCAT(MACHINE,CONCAT(' - ',WC_NAME)) AS 'WC' FROM V_WORKCENTERS")
+	f.Data.DataTable.CreateFromSQL("dtWC","con",v.Local.ssql)
+	F.Intrinsic.Control.For(v.Local.i,0,v.DataTable.dtWC.RowCount--,1)
+		f.Intrinsic.String.Concat(v.Local.sWC,v.DataTable.dtWC(v.Local.i).WC!fieldvaltrim,"*!*",v.Local.sWC)
+	F.Intrinsic.Control.Next(v.Local.i)
+	v.Local.ssql.Set("SELECT CONCAT(WORK_GROUP,CONCAT(' - ',DESCR)) AS 'WC' FROM V_WORKGROUP_HEAD")
+	f.Data.DataTable.CreateFromSQL("dtWG","con",v.Local.ssql)
+	f.Intrinsic.Control.For(v.Local.i,0,v.DataTable.dtWG.RowCount--,1)
+		f.Intrinsic.string.Concat(v.Local.sWC,v.DataTable.dtWG(v.Local.i).WC!fieldvaltrim,"*!*",v.Local.sWC)
+	f.Intrinsic.Control.Next(v.Local.i)
+	f.ODBC.Connection!con.Close
+	
+	
+	'Check if the file exists
+	v.Local.bFileCheck.Declare(boolean)
+	v.Local.sFileLocat.Declare(string)
+	f.Intrinsic.String.Concat(v.Caller.GasDir,"\",V.Caller.CompanyCode,"_GAB_XXXX_CONFIG.xml",v.Local.sFileLocat)
+	f.Intrinsic.File.Exists(v.Local.sFileLocat,v.Local.bFileCheck)
+	f.Intrinsic.Control.If(v.Local.bFileCheck)
+		f.Data.DataTable.CreateFromXML("dt",v.Local.sFileLocat,true)
+	f.Intrinsic.Control.Else
+		f.Data.DataTable.Create("dt",true)
+		f.Data.DataTable.AddColumn("dt","Workcentre","String")
+	f.Intrinsic.Control.EndIf
+	
+	'Set Column Properties
+	gui.frmConfig.gsgcWorkCent.DataSource("dt")
+	gui.frmConfig.gsgcWorkCent.AddGridviewFromDatatable("gv","dt")
+	gui.frmConfig.gsgcWorkCent.SetGridviewProperty("gv","AllowAddRows","True")
+	gui.frmConfig.gsgcWorkCent.SetGridviewProperty("gv","AllowDeleteRows","True")
+	gui.frmConfig.gsgcWorkCent.SetColumnProperty("gv","Workcentre","ReadOnly","False")
+	gui.frmConfig.gsgcWorkCent.SetColumnProperty("gv","Workcentre","AllowEdit","True")
+	gui.frmConfig.gsgcWorkCent.SetColumnProperty("gv","Workcentre","Caption","Workcenter/Workgroup")
+	'Set Bold
+	gui.frmConfig.gsgcWorkCent.SetColumnProperty("gv","Workcentre","HeaderFontBold","True")
+	'Set drop down list
+	gui.frmConfig.gsgcWorkCent.ColumnEdit("gv","Workcentre","Dropdownlist",v.Local.sWC)
+	
+	'0 - None
+	'1 - Top
+	'2 - Bottom
+	'4 - Left
+	'8 - Right
+	gui.frmConfig.gsgcWorkCent.anchor(15)
+	gui.frmConfig.cmdSave.ANCHOR(6)
+	
+	'Show form
+	gui.frmConfig..Show
+	
+f.Intrinsic.Control.Catch
+	f.Intrinsic.UI.Msgbox(v.Ambient.ErrorDescription)
+	f.Intrinsic.Control.CallSub(frmConfig_UnLoad)
+f.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.cmdSave_Click.Start
+f.Intrinsic.Control.Try
+	v.Local.sFileLocat.Declare(string)
+	'Daily Machine Hours
+	f.Intrinsic.String.Concat(v.Caller.GasDir,"\",V.Caller.CompanyCode,"_GAB_XXXX_CONFIG.xml",v.Local.sFileLocat)
+	f.Data.DataTable.SaveToXML("dt",0,true,v.Local.sfileLocat)
+	f.Intrinsic.UI.Msgbox("Successfully Updated.")
+f.Intrinsic.Control.Catch
+	f.Intrinsic.UI.Msgbox(v.Ambient.ErrorDescription)
+	f.Intrinsic.Control.CallSub(frmConfig_UnLoad)
+f.Intrinsic.Control.EndTry
+Program.Sub.cmdSave_Click.End
+
+Program.Sub.frmConfig_UnLoad.Start
+F.Intrinsic.Control.End
+Program.Sub.frmConfig_UnLoad.End
