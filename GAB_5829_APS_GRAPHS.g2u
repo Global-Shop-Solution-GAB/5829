@@ -1,0 +1,221 @@
+Program.Sub.ScreenSU.Start
+Gui.frmAPSGraph..Create
+Gui.frmAPSGraph..Caption("APS Graphs")
+Gui.frmAPSGraph..Size(20340,9825)
+Gui.frmAPSGraph..MinX(16575)
+Gui.frmAPSGraph..MinY(9825)
+Gui.frmAPSGraph..Position(0,0)
+Gui.frmAPSGraph..BackColor(-2147483633)
+Gui.frmAPSGraph..MousePointer(0)
+Gui.frmAPSGraph..Event(UnLoad,frmAPSGraph_UnLoad)
+Gui.frmAPSGraph.gscAPS.Create(GsChart)
+Gui.frmAPSGraph.gscAPS.Size(19980,9195)
+Gui.frmAPSGraph.gscAPS.Position(0,-15)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+v.Global.sSeriesBase.Declare
+v.Global.sSeriesStack.Declare
+v.Global.lDayCount.Declare
+v.Global.lDayCount.set(9)
+v.Global.sServerPath.Declare
+v.Global.sServerPath.Set("C:\inetpub\wwwroot")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+f.ODBC.Connection!con.opencompanyconnection(60)
+f.Intrinsic.Control.CallSub(buildDataTable)
+f.Intrinsic.Control.CallSub(ProgramInit)
+f.Intrinsic.Control.CallSub(frmAPSGraph_Unload)
+Program.Sub.Main.End
+
+Program.Sub.ProgramInit.Start
+v.Local.sFileLocat.Declare
+v.Local.bFileCheck.Declare
+v.Local.sSplit.Declare
+v.Local.i.Declare
+
+'Load from XML File 
+f.Intrinsic.String.Concat(v.Caller.GasDir,"\",V.Caller.CompanyCode,"_GAB_XXXX_CONFIG.xml",v.Local.sFileLocat)
+f.Intrinsic.File.Exists(v.Local.sFileLocat,v.Local.bFileCheck)
+f.Intrinsic.Control.If(v.Local.bFileCheck)
+	f.Intrinsic.Control.If(v.DataTable.dt.Exists)
+		f.Data.DataTable.Close("dt")
+	f.Intrinsic.Control.EndIf
+	f.Data.DataTable.CreateFromXML("dt",v.Local.sFileLocat,true)
+F.Intrinsic.Control.Else
+	F.Intrinsic.Control.ExitSub
+f.Intrinsic.Control.EndIf
+
+'Loop through all the values
+f.Intrinsic.Control.For(v.Local.i,0,v.DataTable.dt.RowCount--,1)
+	F.Intrinsic.String.Split(v.DataTable.dt(v.Local.i).WORKCENTRE!FIELDVALTRIM,"-",v.Local.sSplit)
+	f.Intrinsic.Control.CallSub(buildWCJobs,"WC",v.Local.sSplit(0))
+	f.Intrinsic.Control.CallSub(createGraph,"WC",v.Local.sSplit(0))
+	f.Data.DataTable.DeleteRow("dtJobs")
+f.Intrinsic.Control.Next(v.Local.i)
+Program.Sub.ProgramInit.End
+
+Program.Sub.createGraph.Start
+V.Local.sFileExport.Declare
+v.Local.sSeriesBase.Declare
+v.Local.sSeriesStack.Declare
+v.Local.sNewPage.Declare
+v.Local.sHTMLFile.Declare
+v.Local.sHTML.Declare
+v.Local.sWC.Declare
+v.Local.iLen.Declare
+v.Local.i.declare
+v.Local.sWC.Set(v.Args.WC)
+
+gui.frmAPSGraph.gscAPS.anchor(15)
+
+gui.frmAPSGraph..WindowState(2)
+gui.frmAPSGraph..Show
+f.Intrinsic.Control.For(v.Local.i,v.Global.lDayCount,0,-1)
+	f.Intrinsic.String.Concat(v.Local.sSeriesBase,v.DataTable.dtJobs(v.Local.i).DateF!fieldval,"*!*",v.DataTable.dtJobs(v.Local.i).Booked!fieldvalfloat,"!*!",v.Local.sSeriesBase)
+	f.Intrinsic.String.Concat(v.Local.sSeriesStack,v.DataTable.dtJobs(v.Local.i).DateF!fieldval,"*!*0","!*!",v.Local.sSeriesStack)
+f.Intrinsic.Control.Next(v.Local.i)
+
+v.Local.iLen.Set(v.local.sSeriesBase.Length)
+f.Intrinsic.Math.Sub(v.Local.iLen,3,v.Local.iLen)
+F.Intrinsic.String.Left(v.local.sSeriesBase,V.Local.iLen,v.local.sSeriesBase)
+	
+v.Local.iLen.Set(v.local.sSeriesStack.Length)
+f.Intrinsic.Math.Sub(v.Local.iLen,3,v.Local.iLen)
+F.Intrinsic.String.Left(v.local.sSeriesStack,V.Local.iLen,v.local.sSeriesStack)
+
+gui.frmAPSGraph.gscAPS.CreateVertStackedBarChart(v.Local.sWC,v.Local.sWC,"Scheduled Work",v.Local.sSeriesBase,"Scheduled Work",V.local.sSeriesStack,False)
+
+'Set Filename
+f.Intrinsic.String.Concat(v.Global.sServerPath,"\",v.Local.sWC,".html",v.Local.sNewPage)
+
+'Grab the html template
+f.Intrinsic.String.Concat(v.Caller.GasDir,"\GAB_APS_GRAPHS.html",v.Local.sHtmlFile)
+f.Intrinsic.File.File2String(v.Local.sHTMLFile,v.Local.sHTML)
+
+'Deploy image
+F.Intrinsic.String.Concat(v.Global.sServerPath,"\",V.Local.sWC,".jpg",v.Local.sFileExport)
+Gui.frmAPSGraph.gscAPS.ImageToFile("JPEG",V.Local.sFileExport)
+
+'Deploy File
+f.Intrinsic.String.Build(v.Local.sHTML,v.Local.sWC,v.Local.sFileExport,v.Local.sHTML)
+f.Intrinsic.File.String2File(v.Local.sNewPage,v.Local.sHTML)
+		
+Program.Sub.createGraph.End
+
+Program.Sub.buildWCJobs.Start
+v.Local.ssql.Declare
+v.Local.sWC.Declare
+v.Local.sNewWCs.Declare
+v.Local.sDay.Declare
+v.Local.sDate.Declare
+V.Local.sDayMonth.Declare
+
+v.Local.fRet.Declare
+v.Local.fRes.Declare
+v.Local.fCap.Declare
+
+v.Local.dDate.Declare
+v.Local.dNewDate.Declare
+V.Local.i.Declare
+v.Local.lRet.Declare
+
+'Set Variables
+v.Local.sWC.Set(v.args.WC)
+v.Local.dDate.Set(v.Ambient.Date)
+
+f.Intrinsic.Control.For(v.Local.i,0,v.Global.lDayCount,1)
+	f.Intrinsic.Date.DateAdd("D",v.Local.i,v.Local.dDate,v.Local.dNewDate)
+	
+	'Check if WC is Workgroup
+	f.Intrinsic.Control.CallSub(workgroupCheck,"WC",v.Local.sWC)
+	
+	f.in.variable.argtovar(sMyWCs,v.local.sNewWCs)
+	
+	f.Intrinsic.String.Build("select SUM(RBT) from APSV3_UBDetail WHERE SAR in ({0})  AND BDATE='{1}'",v.Local.sNewWCs,v.Local.dNewDate.PervasiveDate,v.Local.ssql)
+	f.ODBC.Connection!con.executeandreturn(v.Local.ssql,v.local.fRet)
+	
+	f.Intrinsic.String.Format(v.Local.dNewDate,"ddd-dd-mmm",v.Local.sDayMonth)
+	f.Intrinsic.String.Format(v.Local.dNewDate,"ddd",v.Local.sDay)
+	f.Intrinsic.Date.Weekday(v.Local.dNewDate,v.Local.lRet)
+	f.Intrinsic.Control.If(v.Local.lRet,=,1)
+		v.Local.lRet.Set(7)
+	f.Intrinsic.Control.Else
+		f.Intrinsic.Math.Sub(v.Local.lRet,1,v.Local.lRet)
+	f.Intrinsic.Control.EndIf
+
+	f.Intrinsic.Control.CallSub(getCapacity,"Day",v.Local.lRet,"WC",v.Local.sNewWCs,"WCDate",v.local.dNewDate)
+	f.in.variable.argtovar(fCapacity,v.local.fCap)
+	
+	f.Intrinsic.Control.If(v.Local.fCap,<>,0)
+	f.Intrinsic.Control.AndIf(v.Local.fRet,<>,0)
+		f.Intrinsic.Math.Div(v.Local.fRet,v.Local.fCap,v.Local.fRes)
+		f.Intrinsic.Math.Mult(v.Local.fres,100,v.Local.fRes)
+		f.Intrinsic.Math.Round(v.Local.fRes,2,v.Local.fRes)
+	f.Intrinsic.Control.EndIf
+
+	f.Data.DataTable.AddRow("dtJobs","Day",v.Local.sDay,"Booked",v.Local.fRes,"DateF",v.Local.sDayMonth,"TotHours",v.Local.fRet,"TotCap",v.Local.fCap)
+	v.Local.fRes.Set(0)
+f.Intrinsic.Control.Next(v.Local.i)
+Program.Sub.buildWCJobs.End
+
+Program.Sub.workGroupCheck.Start
+v.Local.ssql.Declare
+v.Local.sMyWC.Declare
+v.Local.i.Declare
+v.Local.iLen.Declare
+f.Intrinsic.String.Build("SELECT * FROM V_WORKGROUP_LINE WHERE WORKGROUP='{0}'",V.ARGS.WC,v.Local.ssql)
+f.Intrinsic.Control.If(v.DataTable.dtWCs.Exists)
+	f.Data.DataTable.Close("dtWCs")
+f.Intrinsic.Control.EndIf
+f.Data.DataTable.CreateFromSQL("dtWCs","con",v.Local.ssql)
+f.Intrinsic.Control.If(v.DataTable.dtWCs.RowCount,=,0)
+	f.Intrinsic.String.Concat("'",v.Args.WC,"',",v.Local.sMyWC)
+f.Intrinsic.Control.Else
+	f.Intrinsic.Control.For(v.Local.i,0,v.DataTable.dtWCs.RowCount--,1)
+		f.Intrinsic.String.Concat(v.local.sMyWC,"'",v.DataTable.dtWCs(v.Local.i).WORKCENTER!FIELDVALTRIM,"',",v.local.sMyWC)
+	f.Intrinsic.Control.Next(v.Local.i)
+f.Intrinsic.Control.EndIf
+
+v.Local.iLen.Set(v.local.sMyWC.Length)
+f.Intrinsic.Math.Sub(v.Local.iLen,1,v.Local.iLen)
+F.Intrinsic.String.Left(v.local.sMyWC,V.Local.iLen,v.local.sMyWC)
+f.Intrinsic.Variable.AddRV("sMyWCs",v.Local.sMyWC)
+Program.Sub.workGroupCheck.End
+
+Program.Sub.getCapacity.Start
+v.Local.lDay.Declare
+v.Local.fRet.Declare
+v.Local.sRet.Declare
+v.Local.sWC.Declare
+v.Local.ssql.Declare
+v.Local.dDate.Declare
+v.Local.sWC.Set(v.Args.WC)
+v.Local.lDay.Set(v.Args.Day)
+v.Local.dDate.Set(v.Args.WCDate)
+
+f.Intrinsic.String.Build("SELECT SUM (LENGTH_HRS_{0}_1+LENGTH_HRS_{0}_2+LENGTH_HRS_{0}_3+LENGTH_HRS_{0}_4+LENGTH_HRS_{0}_5+LENGTH_HRS_{0}_6) FROM V_WC_CALENDAR WHERE V_WC_CALENDAR.WORKCENTER IN ({1})",v.Local.lDay,v.Local.sWC,v.Local.ssql)
+f.ODBC.Connection!con.executeandreturn(v.Local.ssql,v.Local.fRet)
+'Check if there is an exception
+f.Intrinsic.String.Build("select TotCap from APSV3_ActPerDef where ResName in ({0}) and PDate='{1}'",V.Local.sWC,V.Local.dDate.PervasiveDate,v.Local.ssql)
+f.ODBC.Connection!con.executeandreturn(v.Local.ssql,v.Local.sRet)
+f.Intrinsic.Control.If(v.Local.sret.Trim,<>,"")
+	v.Local.fRet.Set(v.Local.sret)
+f.Intrinsic.Control.EndIf
+f.Intrinsic.Variable.AddRV("fCapacity",v.Local.fRet)
+Program.Sub.getCapacity.End
+
+Program.Sub.buildDataTable.Start
+F.Data.DataTable.Create("dtJobs",true)
+f.Data.DataTable.AddColumn("dtJobs","Day","String")
+f.Data.DataTable.AddColumn("dtJobs","Booked","Float")
+f.Data.DataTable.AddColumn("dtJobs","DateF","String")
+f.Data.DataTable.AddColumn("dtJobs","TotHours","Float")
+f.Data.DataTable.AddColumn("dtJobs","TotCap","Float")
+Program.Sub.buildDataTable.End
+
+Program.Sub.frmAPSGraph_UnLoad.Start
+f.ODBC.Connection!con.Close
+f.Intrinsic.Control.End
+Program.Sub.frmAPSGraph_UnLoad.End
